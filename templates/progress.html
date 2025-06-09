@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Scraping Progress</title>
+  <script src="/static/log.js"></script>
+</head>
+<body>
+  <h2>Scraping in Progress...</h2>
+  <pre id="logbox" style="border:1px solid #ccc; padding:10px; height:300px; overflow:auto;"></pre>
+  <script>
+    startLogPolling("{{ job_id }}");
+  </script>
+</body>
+</html>

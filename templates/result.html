@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Results</title>
+</head>
+<body>
+  <h2>Scraping Results</h2>
+  <a href="/download/{{ request.path.split('/')[-1] }}">Download CSV</a>
+  <table border="1" cellpadding="5">
+    {% for row in rows %}
+      <tr>
+        {% for col in row %}
+          <td>{{ col }}</td>
+        {% endfor %}
+      </tr>
+    {% endfor %}
+  </table>
+</body>
+</html>
