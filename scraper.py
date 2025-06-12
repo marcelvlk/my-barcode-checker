@@ -8,20 +8,18 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 def scrape_prices(input_path, output_path, log_path, job_id):
-    # Replace these with your real login credentials
+    # Replace with real credentials or use environment variables later
     USERNAME = "potravinysventek@gmail.com"
     PASSWORD = "71020799As"
 
-    # Set up headless Chrome
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    driver = webdriver.Chrome(options=options)
 
+    driver = webdriver.Chrome(options=options)
     wait = WebDriverWait(driver, 10)
 
-    # Load barcodes from CSV
     with open(input_path, newline='', encoding="utf-8") as f:
         reader = csv.DictReader(f)
         barcodes = [row["Barcode"].strip() for row in reader if row["Barcode"].strip()]
@@ -29,18 +27,15 @@ def scrape_prices(input_path, output_path, log_path, job_id):
     results = []
 
     with open(log_path, "w", encoding="utf-8") as log:
-        log.write(f"🔐 Logging in to vokollar.sk...\n")
         try:
+            log.write("🔐 Starting login sequence...\n")
             driver.get("https://obchod.vokollar.sk/")
 
-            # Click login trigger to show modal
-            login_trigger = wait.until(EC.element_to_be_clickable(
-                (By.CSS_SELECTOR, 'a.ct-account-item[href="#account-modal"]')
-            ))
-            login_trigger.click()
+            # Use JS to click login trigger in case of animation issues
+            driver.execute_script("document.querySelector('a.ct-account-item').click();")
+            time.sleep(2)  # Give modal time to fully render
 
-            # Wait for modal and login fields
-            wait.until(EC.visibility_of_element_located((By.ID, "account-modal")))
+            # Wait for login modal and input fields
             user_input = wait.until(EC.presence_of_element_located((By.ID, "user_login")))
             pass_input = driver.find_element(By.ID, "user_pass")
             submit_btn = driver.find_element(By.NAME, "wp-submit")
@@ -48,11 +43,15 @@ def scrape_prices(input_path, output_path, log_path, job_id):
             user_input.send_keys(USERNAME)
             pass_input.send_keys(PASSWORD)
             submit_btn.click()
-            time.sleep(3)
+            time.sleep(3)  # Allow login to complete
 
             log.write("✅ Logged in successfully\n\n")
+
         except Exception as e:
             log.write(f"❌ Login failed: {e}\n")
+            # Dump HTML for debugging
+            with open("/tmp/render_debug.html", "w", encoding="utf-8") as html_debug:
+                html_debug.write(driver.page_source)
             driver.quit()
             return
 
