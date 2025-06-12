@@ -6,9 +6,10 @@ from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.action_chains import ActionChains
 
 def scrape_prices(input_path, output_path, log_path, job_id):
-    # Replace with real credentials or use environment variables later
+    # Replace these with real login credentials
     USERNAME = "potravinysventek@gmail.com"
     PASSWORD = "71020799As"
 
@@ -19,6 +20,7 @@ def scrape_prices(input_path, output_path, log_path, job_id):
 
     driver = webdriver.Chrome(options=options)
     wait = WebDriverWait(driver, 10)
+    actions = ActionChains(driver)
 
     with open(input_path, newline='', encoding="utf-8") as f:
         reader = csv.DictReader(f)
@@ -28,14 +30,11 @@ def scrape_prices(input_path, output_path, log_path, job_id):
 
     with open(log_path, "w", encoding="utf-8") as log:
         try:
-            log.write("🔐 Starting login sequence...\n")
+            log.write("🔐 Logging into vokollar.sk...\n")
             driver.get("https://obchod.vokollar.sk/")
-
-            # Use JS to click login trigger in case of animation issues
             driver.execute_script("document.querySelector('a.ct-account-item').click();")
-            time.sleep(2)  # Give modal time to fully render
+            time.sleep(2)
 
-            # Wait for login modal and input fields
             user_input = wait.until(EC.presence_of_element_located((By.ID, "user_login")))
             pass_input = driver.find_element(By.ID, "user_pass")
             submit_btn = driver.find_element(By.NAME, "wp-submit")
@@ -43,13 +42,12 @@ def scrape_prices(input_path, output_path, log_path, job_id):
             user_input.send_keys(USERNAME)
             pass_input.send_keys(PASSWORD)
             submit_btn.click()
-            time.sleep(3)  # Allow login to complete
+            time.sleep(3)
 
             log.write("✅ Logged in successfully\n\n")
 
         except Exception as e:
             log.write(f"❌ Login failed: {e}\n")
-            # Dump HTML for debugging
             with open("/tmp/render_debug.html", "w", encoding="utf-8") as html_debug:
                 html_debug.write(driver.page_source)
             driver.quit()
@@ -58,17 +56,23 @@ def scrape_prices(input_path, output_path, log_path, job_id):
         log.write(f"🔍 Loaded {len(barcodes)} barcodes\n")
 
         for barcode in barcodes:
-            log.write(f"Looking up {barcode}...\n")
+            log.write(f"🔎 Looking up {barcode}...\n")
             try:
                 driver.get("https://obchod.vokollar.sk/")
                 time.sleep(2)
 
-                search_input = driver.find_element(By.ID, "dgwt-wcas-search-input-3")
+                # Wait for search input to be ready
+                search_input = wait.until(EC.element_to_be_clickable((By.ID, "dgwt-wcas-search-input-3")))
+                driver.execute_script("arguments[0].scrollIntoView(true);", search_input)
+                actions.move_to_element(search_input).click().perform()
+                time.sleep(0.5)
+
                 search_input.clear()
                 search_input.send_keys(barcode)
                 search_input.send_keys(Keys.RETURN)
                 time.sleep(3)
 
+                # Attempt to click on suggestion if present
                 try:
                     suggestion = driver.find_element(By.CSS_SELECTOR, ".dgwt-wcas-suggestion")
                     suggestion.click()
@@ -76,11 +80,13 @@ def scrape_prices(input_path, output_path, log_path, job_id):
                 except NoSuchElementException:
                     pass
 
+                # Extract product name
                 try:
                     product_name = driver.find_element(By.CSS_SELECTOR, "h1.product_title").text
                 except NoSuchElementException:
                     product_name = "Not found"
 
+                # Extract price
                 try:
                     price_element = driver.find_element(By.CSS_SELECTOR, "p.price span.woocommerce-Price-amount bdi")
                     price = price_element.text.strip()
