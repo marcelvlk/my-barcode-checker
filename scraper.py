@@ -72,7 +72,7 @@ def scrape_prices(input_path, output_path, log_path, job_id):
                 search_input = wait.until(EC.element_to_be_clickable((By.ID, "dgwt-wcas-search-input-3")))
                 driver.execute_script("arguments[0].scrollIntoView(true);", search_input)
                 actions.move_to_element(search_input).click().perform()
-                time.sleep(0.5)
+                time.sleep(2)
 
                 search_input.clear()
                 search_input.send_keys(barcode)
@@ -84,7 +84,7 @@ def scrape_prices(input_path, output_path, log_path, job_id):
                     suggestion.click()
                     time.sleep(2)
                 except NoSuchElementException:
-                    pass
+                    log.write("First exception")
 
                 try:
                     product_name = driver.find_element(By.CSS_SELECTOR, "h1.product_title").text
