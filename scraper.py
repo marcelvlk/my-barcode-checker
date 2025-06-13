@@ -1,4 +1,4 @@
-import csv, time
+import csv, time, base64
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -98,12 +98,6 @@ def scrape_prices(input_path, output_path, log_path, job_id):
                 results.append({"Barcode": barcode, "Product": product_name, "Price": price})
                 log.write(f"→ {product_name} = {price}\n")
 
-                if product_name == "Not found" or price == "Not found":
-                    debug_path = f"/tmp/debug_{barcode}.html"
-                    with open(debug_path, "w", encoding="utf-8") as debug_html:
-                        debug_html.write(driver.page_source)
-                    log.write(f"📄 Saved debug page: {debug_path}\n")
-
             except Exception as e:
                 log.write(f"[!] Unexpected error for {barcode}: {str(e)}\n")
                 results.append({"Barcode": barcode, "Product": "Error", "Price": "Error"})
@@ -112,13 +106,16 @@ def scrape_prices(input_path, output_path, log_path, job_id):
 
         log.write("\n✅ Scraping complete!\n")
 
-    # Final snapshot for manual testing
-    try:
-        with open("/tmp/debug_test.html", "w", encoding="utf-8") as f:
-            f.write(driver.page_source)
-        log.write("📄 Wrote fallback debug_test.html to /tmp/debug_test.html\n")
-    except Exception as e:
-        log.write(f"⚠️ Could not save debug_test.html: {e}\n")
+        # Embed final HTML for debugging directly in log
+        try:
+            html = driver.page_source
+            encoded = base64.b64encode(html.encode("utf-8")).decode("utf-8")
+            log.write("\n[DEBUG_HTML_START]\n")
+            log.write(encoded)
+            log.write("\n[DEBUG_HTML_END]\n")
+            log.write("📄 Embedded debug HTML as base64 between DEBUG_HTML_START and DEBUG_HTML_END\n")
+        except Exception as e:
+            log.write(f"⚠️ Could not base64-encode HTML: {e}\n")
 
     driver.quit()
 
