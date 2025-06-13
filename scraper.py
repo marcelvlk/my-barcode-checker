@@ -31,15 +31,10 @@ def scrape_prices(input_path, output_path, log_path, job_id):
         try:
             log.write("🔐 Logging into vokollar.sk...\n")
             driver.get("https://obchod.vokollar.sk/")
-
-            # Click login trigger
             driver.execute_script("document.querySelector('a.ct-account-item').click();")
             time.sleep(1)
 
-            # Wait for modal to be visible
             wait.until(EC.visibility_of_element_located((By.ID, "account-modal")))
-
-            # Re-locate input fields after modal is visible (to avoid stale reference)
             user_input = wait.until(EC.presence_of_element_located((By.ID, "user_login")))
             user_input.clear()
             user_input.send_keys(USERNAME)
@@ -50,14 +45,15 @@ def scrape_prices(input_path, output_path, log_path, job_id):
 
             submit_btn = wait.until(EC.element_to_be_clickable((By.NAME, "wp-submit")))
             submit_btn.click()
-
             time.sleep(3)
+
             log.write("✅ Logged in successfully\n\n")
 
         except Exception as e:
             log.write(f"❌ Login failed: {e}\n")
             with open("/tmp/render_debug_login.html", "w", encoding="utf-8") as html_debug:
                 html_debug.write(driver.page_source)
+            log.write("📄 Wrote login debug HTML to /tmp/render_debug_login.html\n")
             driver.quit()
             return
 
@@ -72,7 +68,7 @@ def scrape_prices(input_path, output_path, log_path, job_id):
                 search_input = wait.until(EC.element_to_be_clickable((By.ID, "dgwt-wcas-search-input-3")))
                 driver.execute_script("arguments[0].scrollIntoView(true);", search_input)
                 actions.move_to_element(search_input).click().perform()
-                time.sleep(2)
+                time.sleep(0.5)
 
                 search_input.clear()
                 search_input.send_keys(barcode)
@@ -84,7 +80,7 @@ def scrape_prices(input_path, output_path, log_path, job_id):
                     suggestion.click()
                     time.sleep(2)
                 except NoSuchElementException:
-                    log.write("First exception")
+                    pass
 
                 try:
                     product_name = driver.find_element(By.CSS_SELECTOR, "h1.product_title").text
@@ -103,8 +99,10 @@ def scrape_prices(input_path, output_path, log_path, job_id):
                 log.write(f"→ {product_name} = {price}\n")
 
                 if product_name == "Not found" or price == "Not found":
-                    with open(f"/tmp/debug_{barcode}.html", "w", encoding="utf-8") as debug_html:
+                    debug_path = f"/tmp/debug_{barcode}.html"
+                    with open(debug_path, "w", encoding="utf-8") as debug_html:
                         debug_html.write(driver.page_source)
+                    log.write(f"📄 Saved debug page: {debug_path}\n")
 
             except Exception as e:
                 log.write(f"[!] Unexpected error for {barcode}: {str(e)}\n")
@@ -113,6 +111,14 @@ def scrape_prices(input_path, output_path, log_path, job_id):
             log.flush()
 
         log.write("\n✅ Scraping complete!\n")
+
+    # Final snapshot for manual testing
+    try:
+        with open("/tmp/debug_test.html", "w", encoding="utf-8") as f:
+            f.write(driver.page_source)
+        log.write("📄 Wrote fallback debug_test.html to /tmp/debug_test.html\n")
+    except Exception as e:
+        log.write(f"⚠️ Could not save debug_test.html: {e}\n")
 
     driver.quit()
 
