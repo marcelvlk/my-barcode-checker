@@ -9,7 +9,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 
 def scrape_prices(input_path, output_path, log_path, job_id):
-    # Replace these with real login credentials
+    # Replace with real credentials or move to env vars later
     USERNAME = "potravinysventek@gmail.com"
     PASSWORD = "71020799As"
 
@@ -48,7 +48,7 @@ def scrape_prices(input_path, output_path, log_path, job_id):
 
         except Exception as e:
             log.write(f"❌ Login failed: {e}\n")
-            with open("/tmp/render_debug.html", "w", encoding="utf-8") as html_debug:
+            with open("/tmp/render_debug_login.html", "w", encoding="utf-8") as html_debug:
                 html_debug.write(driver.page_source)
             driver.quit()
             return
@@ -61,18 +61,17 @@ def scrape_prices(input_path, output_path, log_path, job_id):
                 driver.get("https://obchod.vokollar.sk/")
                 time.sleep(2)
 
-                # Wait for search input to be ready
                 search_input = wait.until(EC.element_to_be_clickable((By.ID, "dgwt-wcas-search-input-3")))
                 driver.execute_script("arguments[0].scrollIntoView(true);", search_input)
                 actions.move_to_element(search_input).click().perform()
-                time.sleep(2)
+                time.sleep(0.5)
 
                 search_input.clear()
                 search_input.send_keys(barcode)
                 search_input.send_keys(Keys.RETURN)
                 time.sleep(3)
 
-                # Attempt to click on suggestion if present
+                # Try clicking a suggestion
                 try:
                     suggestion = driver.find_element(By.CSS_SELECTOR, ".dgwt-wcas-suggestion")
                     suggestion.click()
@@ -83,21 +82,28 @@ def scrape_prices(input_path, output_path, log_path, job_id):
                 # Extract product name
                 try:
                     product_name = driver.find_element(By.CSS_SELECTOR, "h1.product_title").text
-                except NoSuchElementException:
+                except Exception as e:
                     product_name = "Not found"
+                    log.write(f"[!] Product name error for {barcode}: {e}\n")
 
                 # Extract price
                 try:
                     price_element = driver.find_element(By.CSS_SELECTOR, "p.price span.woocommerce-Price-amount bdi")
                     price = price_element.text.strip()
-                except NoSuchElementException:
+                except Exception as e:
                     price = "Not found"
+                    log.write(f"[!] Price error for {barcode}: {e}\n")
 
                 results.append({"Barcode": barcode, "Product": product_name, "Price": price})
                 log.write(f"→ {product_name} = {price}\n")
 
+                # Save page snapshot if something failed
+                if product_name == "Not found" or price == "Not found":
+                    with open(f"/tmp/debug_{barcode}.html", "w", encoding="utf-8") as debug_html:
+                        debug_html.write(driver.page_source)
+
             except Exception as e:
-                log.write(f"[!] Error for {barcode}: {str(e)}\n")
+                log.write(f"[!] Unexpected error for {barcode}: {str(e)}\n")
                 results.append({"Barcode": barcode, "Product": "Error", "Price": "Error"})
 
             log.flush()
