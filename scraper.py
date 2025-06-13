@@ -9,7 +9,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 
 def scrape_prices(input_path, output_path, log_path, job_id):
-    # Replace with real credentials or move to env vars later
     USERNAME = "potravinysventek@gmail.com"
     PASSWORD = "71020799As"
 
@@ -32,18 +31,27 @@ def scrape_prices(input_path, output_path, log_path, job_id):
         try:
             log.write("🔐 Logging into vokollar.sk...\n")
             driver.get("https://obchod.vokollar.sk/")
+
+            # Click login trigger
             driver.execute_script("document.querySelector('a.ct-account-item').click();")
-            time.sleep(2)
+            time.sleep(1)
 
+            # Wait for modal to be visible
+            wait.until(EC.visibility_of_element_located((By.ID, "account-modal")))
+
+            # Re-locate input fields after modal is visible (to avoid stale reference)
             user_input = wait.until(EC.presence_of_element_located((By.ID, "user_login")))
-            pass_input = driver.find_element(By.ID, "user_pass")
-            submit_btn = driver.find_element(By.NAME, "wp-submit")
-
+            user_input.clear()
             user_input.send_keys(USERNAME)
-            pass_input.send_keys(PASSWORD)
-            submit_btn.click()
-            time.sleep(3)
 
+            pass_input = wait.until(EC.presence_of_element_located((By.ID, "user_pass")))
+            pass_input.clear()
+            pass_input.send_keys(PASSWORD)
+
+            submit_btn = wait.until(EC.element_to_be_clickable((By.NAME, "wp-submit")))
+            submit_btn.click()
+
+            time.sleep(3)
             log.write("✅ Logged in successfully\n\n")
 
         except Exception as e:
@@ -71,7 +79,6 @@ def scrape_prices(input_path, output_path, log_path, job_id):
                 search_input.send_keys(Keys.RETURN)
                 time.sleep(3)
 
-                # Try clicking a suggestion
                 try:
                     suggestion = driver.find_element(By.CSS_SELECTOR, ".dgwt-wcas-suggestion")
                     suggestion.click()
@@ -79,14 +86,12 @@ def scrape_prices(input_path, output_path, log_path, job_id):
                 except NoSuchElementException:
                     pass
 
-                # Extract product name
                 try:
                     product_name = driver.find_element(By.CSS_SELECTOR, "h1.product_title").text
                 except Exception as e:
                     product_name = "Not found"
                     log.write(f"[!] Product name error for {barcode}: {e}\n")
 
-                # Extract price
                 try:
                     price_element = driver.find_element(By.CSS_SELECTOR, "p.price span.woocommerce-Price-amount bdi")
                     price = price_element.text.strip()
@@ -97,7 +102,6 @@ def scrape_prices(input_path, output_path, log_path, job_id):
                 results.append({"Barcode": barcode, "Product": product_name, "Price": price})
                 log.write(f"→ {product_name} = {price}\n")
 
-                # Save page snapshot if something failed
                 if product_name == "Not found" or price == "Not found":
                     with open(f"/tmp/debug_{barcode}.html", "w", encoding="utf-8") as debug_html:
                         debug_html.write(driver.page_source)
