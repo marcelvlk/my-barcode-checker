@@ -1,6 +1,7 @@
 from flask import Flask, request, render_template, send_file, jsonify
 import os, uuid, csv, threading, time
 from scraper import scrape_prices
+from flask import send_from_directory
 
 app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
@@ -63,6 +64,12 @@ def download_result(job_id):
     if result_path and os.path.exists(result_path):
         return send_file(result_path, as_attachment=True)
     return "No result found", 404
+
+@app.route("/debug/<filename>")
+def download_debug(filename):
+    if not filename.startswith("debug_") or not filename.endswith(".html"):
+        return "Unauthorized", 403
+    return send_from_directory("/tmp", filename, as_attachment=True)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
